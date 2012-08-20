@@ -125,7 +125,7 @@ class CloudFilesFD(object):
         if 'r' in self.mode:
             self.obj = self.container.get_object(self.name)
             logging.debug("read fd obj.name=%r obj.size=%r" % (self.obj.name, self.obj.size))
-        else: #write
+        else:  # write
             self.obj = ChunkObject(self.container, obj)
             self.obj.content_type = mimetypes.guess_type(obj)[0]
             self.obj.prepare_chunk()
@@ -173,16 +173,18 @@ class ListDirCache(object):
     own caching here to avoid the stat calls each making a connection.
     '''
     MAX_CACHE_TIME = 10         # seconds to cache the listdir for
+    memcache = None             # connection to memcache for all requests
+
     def __init__(self, cffs):
         self.cffs = cffs
         self.path = None
         self.cache = {}
         self.when = time.time()
-        self.memcache = None
-
-        if self.cffs.memcache_hosts:
-            logging.debug("connecting to memcache %r" % self.cffs.memcache_hosts)
-            self.memcache = memcache.Client(self.cffs.memcache_hosts)
+        # NOTE(mitroshin@selectel.org): store memcache connection in class
+        # for use only one connection for many requests
+        if cffs.memcache_hosts and ListDirCache.memcache is None:
+            logging.debug("connecting to memcache %r" % cffs.memcache_hosts)
+            ListDirCache.memcache = memcache.Client(cffs.memcache_hosts)
 
     def key(self, index):
         '''Returns a key for a user distributed cache'''
@@ -208,7 +210,7 @@ class ListDirCache(object):
         if last_modified:
             if "." in last_modified:
                 last_modified, microseconds = last_modified.rsplit(".", 1)
-                microseconds = float("0."+microseconds)
+                microseconds = float("0." + microseconds)
             else:
                 microseconds = 0.0
             mtime_tuple = list(time.strptime(last_modified, "%Y-%m-%dT%H:%M:%S"))
@@ -217,9 +219,9 @@ class ListDirCache(object):
         else:
             mtime = time.time()
         if content_type == "application/directory":
-            mode = 0755|stat.S_IFDIR
+            mode = 0755 | stat.S_IFDIR
         else:
-            mode = 0644|stat.S_IFREG
+            mode = 0644 | stat.S_IFREG
         #(mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime)
         return os.stat_result((mode, 0L, 0L, count, 0, 0, bytes, mtime, mtime, mtime))
 
@@ -228,7 +230,7 @@ class ListDirCache(object):
         logging.debug("listdir container %r path %r" % (container, path))
         cnt = self.cffs._get_container(container)
         if path:
-            prefix = path.rstrip("/")+"/"
+            prefix = path.rstrip("/") + "/"
         else:
             prefix = None
         objects = cnt.list_objects_info(prefix=prefix, delimiter="/")
@@ -386,6 +388,7 @@ class CloudFilesFS(object):
         self.authurl = authurl
         if username is not None:
             self.authenticate(username, api_key)
+
         # A cache to hold the information from the last listdir
         self._listdir_cache = ListDirCache(self)
         self._cwd = '/'

@@ -18,6 +18,7 @@ import cloudfiles
 from errors import IOSError
 from fs import CloudFilesFS
 
+
 class RackspaceCloudFilesFS(CloudFilesFS, ftpserver.AbstractedFS):
     '''Rackspace Cloud Files File system emulation for FTP server.
     '''
@@ -26,9 +27,10 @@ class RackspaceCloudFilesFS(CloudFilesFS, ftpserver.AbstractedFS):
 
     def __init__(self, username, api_key, servicenet=False, authurl=None):
         CloudFilesFS.__init__(self, username, api_key, servicenet=self.servicenet, authurl=self.authurl)
-    
+
     def init_abstracted_fs(self, root, cmd_channel):
         ftpserver.AbstractedFS.__init__(self, root, cmd_channel)
+
 
 class RackspaceCloudAuthorizer(ftpserver.DummyAuthorizer):
     '''FTP server authorizer. Logs the users into Rackspace Cloud
